@@ -10,6 +10,7 @@
 #include "io.h"
 
 namespace ljpeg {
+    
     struct component {
         ushort id; // component id
         int hsf; // horizontal sample factor
@@ -32,7 +33,12 @@ namespace ljpeg {
         size_t height; // image height
         size_t stride; // image stride
         size_t prec; // sample precision 
-        ushort ncomp; // number of color components
+        size_t ncomp; // number of color components
+
+        size_t spss; // spectral / predictor selection start 
+        size_t spse; // spectral / predictor selection end 
+        size_t sabp; // successive approximation bit positions
+
         int pred[4]; // predictor value (differential encoding)
         htable dcts[4]; // huffman tables
         component comps[4]; // color components
@@ -47,6 +53,6 @@ namespace ljpeg {
             ~Image() = default;
 
             void save(const std::string& f) const;
-            ppm::Image::shared_ptr decompress();
+            netpbm::Image<ushort>::shared_ptr decompress();
     };
 }

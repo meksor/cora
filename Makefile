@@ -10,6 +10,14 @@ default: cora
 release: DEBUG_FLAGS =
 release: cora
 
+asan: CXXFLAGS += -g3 -O0 -rdynamic -fno-omit-frame-pointer -fsanitize=address
+asan: LDFLAGS += -Wl,--export-dynamic -fsanitize=address -lbfd -ldw
+asan: cora
+
+profile: CXXFLAGS += -g3 -O3 -rdynamic
+profile: LDFLAGS += -Wl,--export-dynamic
+profile: cora
+
 clean:
 	rm -r build
 
@@ -22,4 +30,4 @@ cora: build $(OBJECTS)
 build:
 	mkdir build
 
-.PHONY: default release
+.PHONY: default release asan

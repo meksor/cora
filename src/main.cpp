@@ -23,7 +23,7 @@ int main(int argc, char * const argv[]) {
         STRIP_BYTECOUNT
     );
     jpeg::Image::shared_ptr pr = std::make_shared<jpeg::Image>(pio);
-    ppm::Image::shared_ptr ppr = pr->decompress();
+    auto ppr = pr->decompress();
     std::string prn = "prv.ppm";
     ppr->io->save(prn);
 
@@ -34,7 +34,7 @@ int main(int argc, char * const argv[]) {
     );
     ljpeg::Image::shared_ptr raw = std::make_shared<ljpeg::Image>(rio);
 
-    ppm::Image::shared_ptr rp = raw->decompress();
+    auto rp = raw->decompress();
     std::string rpn = "raw.ppm";
     rp->io->save(rpn);
 

@@ -20,7 +20,7 @@ namespace jpeg {
             ~Image() = default;
 
             void save(const std::string& f) const;
-            ppm::Image::shared_ptr decompress();
+            netpbm::Image<uint8_t>::shared_ptr decompress();
 
         private:
             std::shared_ptr<::jpeg_error_mgr> errorManager;

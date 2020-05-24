@@ -1,4 +1,5 @@
 #include "jpeg.h"
+#include "ppm.h"
 #include <cstring>
 #include <stdexcept>
 
@@ -8,7 +9,7 @@ namespace jpeg {
         this->errorManager = std::make_shared<::jpeg_error_mgr>();
     };
 
-    ppm::Image::shared_ptr Image::decompress() {
+    netpbm::Image<uint8_t>::shared_ptr Image::decompress() {
         auto dt = [](::jpeg_decompress_struct *ds) {
             ::jpeg_destroy_decompress(ds);
         };
@@ -61,10 +62,9 @@ namespace jpeg {
         ::jpeg_finish_decompress(decompressInfo.get());
         delete[] data;
 
-        ppm::Image::shared_ptr ppm = std::make_shared<ppm::Image>(
-            buf, decompressInfo->output_width, decompressInfo->output_height
+        auto ppm = std::make_shared<netpbm::Image<uint8_t>>(
+            netpbm::Type::Pixelmap, buf, decompressInfo->output_width, decompressInfo->output_height, 8
         );
         return ppm;
     };
 }
-

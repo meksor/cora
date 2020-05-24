@@ -1,5 +1,7 @@
 #include "ljpeg.h"
+#include <climits>
 #include <cstring>
+#include <cassert>
 #include <stdexcept>
 #include <sys/types.h>
 
@@ -99,27 +101,31 @@ namespace ljpeg {
             ji.comps[id - 1].dct = (ts >> 4) & 0x0F;
             ji.comps[id - 1].act = (ts & 0x0F);
         }
-        
-        // 3 bytes of extra useless stuff
+
+        ji.spss = ljsrc->read8();
+        ji.spse = ljsrc->read8();
+        ji.sabp = ljsrc->read8();
+        ji.prec -= ji.sabp;
 
         ljsrc->seek(end);
     }
 
-    unsigned ljpeg_read_bits(int nBits, ushort * lut) {
-        static unsigned in, buf = 0;
-        static int vBits = 0;
-        unsigned res = 0;
-
-        while (vBits < nBits) {
+    unsigned ljpeg_read_bits(int nbits, ushort * lut) {
+        static unsigned buf = 0;
+        static int vbits = 0;
+        unsigned res = 0, in;
+        
+        if (nbits == 0 || vbits < 0) return 0;
+        while (vbits < nbits) {
             in = ljsrc->read8();
             if (in == 0xFF) ljsrc->read8();
             buf = (buf << 8) | (in & 0xFF);
-            vBits += 8;
+            vbits += 8;
         }
-        res = (buf << (32 - vBits)) >> (32 - nBits);
 
-        if (lut) vBits -= lut[res] >> 8;
-        else vBits -= nBits;
+        res = (buf << (32 - vbits)) >> (32 - nbits);
+        if (lut) vbits -= (lut[res] >> 8);
+        else vbits -= nbits;
         return res;
     }
 
@@ -129,42 +135,49 @@ namespace ljpeg {
     }
 
     void ljpeg_decode_row(uint row, ushort * rowbuf, struct jinfo &ji) {
-        uint i, j;
-        ushort len;
-        int coeff;
+        uint i, j, idx;
+        int len, coeff, predictor;
 
         for (i = 0; i<ji.width; i++) {
             for (j = 0; j<ji.ncomp; j++) {
                 htable ht = ji.dcts[ji.comps[j].dct];
+                idx = (i * ji.ncomp) + j;
                 len = ljpeg_read_symbol(ht);
                 coeff = ljpeg_read_bits(len, 0);
-             
+
                 if ((coeff & (1 << (len-1))) == 0)
                     coeff -= (1 << len) - 1;
                 
-                rowbuf[(i * 2) + j] = (ji.pred[j] += coeff);
-                if (ji.pred[j] == 0) {
-                    printf("0");
+                if (i) predictor = rowbuf[idx - ji.ncomp];
+                else {
+                    predictor = ji.pred[j];
+                    ji.pred[j] += coeff;
                 }
+                
+                rowbuf[idx] = predictor + coeff;
             }
         }
     }
 
     void ljpeg_unscramble_row(uint srow, ushort * rowbuf, ushort * ibuf, struct jinfo &ji) {
         uint row, col, scol, idx, slice;
+        bool last;
         ushort cr2_slice[3] = {1, 2640, 2640};
 
         for (scol=0; scol < ji.stride; scol++) {
             if (cr2_slice[0]) {
                 idx = srow*ji.stride + scol;
                 slice = idx / (cr2_slice[1]*ji.height);
-                idx -= slice * cr2_slice[1] * ji.height;
 
-                row = idx / cr2_slice[1];
-                col = idx % cr2_slice[1];
+                if ((last = slice >= cr2_slice[0]))
+		            slice = cr2_slice[0];
+                
+                idx -= slice * (cr2_slice[1] * ji.height);
+                row = idx / cr2_slice[1+last];
+                col = idx % cr2_slice[1+last];
                 col += slice * cr2_slice[1];
-                ibuf[(ji.stride * row) + col] = rowbuf[col];
-            }            
+                ibuf[(ji.stride * row) + col] = rowbuf[scol];
+            }          
         }
     }
 
@@ -190,12 +203,14 @@ namespace ljpeg {
         return ibuf;
     }
 
+    
+
     Image::Image(io::AbstractIo::shared_ptr io) : io(io) {
         io->setByteorder(io::Byteorder::BigEndian);
     };
 
-    ppm::Image::shared_ptr Image::decompress() {
-        uint rgblen, ilen, i, j = 0;
+    netpbm::Image<ushort>::shared_ptr Image::decompress() {
+        uint rgblen, ilen, i, row, col, j = 0;
         ushort * ibuf;
         jinfo * ji = new jinfo;
 
@@ -204,17 +219,23 @@ namespace ljpeg {
         ibuf = ljpeg_decompress(*ji);
 
         ilen = ji->width*ji->ncomp*ji->height;
-        rgblen = ji->width*ji->ncomp*3*ji->height;
-        uint8_t * rgbbuf = new uint8_t[rgblen];
+        ushort * bbuf = new ushort[ilen];
         
         for (i = 0; i<ilen; i++) {
-            j = i * 3;
+            row = i / ji->stride;
+            col = i % ji->stride;
+            bbuf[i] = 0;
+            if ((row+1 < ji->height) && (col+1 < ji->stride)) {
+                bbuf[i] += (((long)ibuf[i] + ibuf[i+1] + ibuf[i+ji->stride])/3);
+            }
 
+            /*
+            
             rgbbuf[j] = ibuf[i] >> (ji->prec - 8);
             rgbbuf[j+1] = ibuf[i] >> (ji->prec - 8);
             rgbbuf[j+2] = ibuf[i] >> (ji->prec - 8);
 
-            /*if (i&1) {
+            if (i&1) {
                 rgbbuf[j] = ibuf[i] >> 8;
                 if (i<ilen-1) rgbbuf[j+1] = ibuf[i+1] >> 8;
                 rgbbuf[j+2] = 0;
@@ -226,8 +247,9 @@ namespace ljpeg {
         
         }
 
-        ppm::Image::shared_ptr ppm = std::make_shared<ppm::Image>(rgbbuf, ji->width*ji->ncomp, ji->height);
+        auto ppm = std::make_shared<netpbm::Image<ushort>>(
+            netpbm::Type::Greymap, ibuf, ji->width*ji->ncomp, ji->height, 14);
         return ppm;
     }
 }
-
+    
