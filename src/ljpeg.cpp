@@ -162,7 +162,7 @@ namespace ljpeg {
     void ljpeg_unscramble_row(uint srow, ushort * rowbuf, ushort * ibuf, struct jinfo &ji) {
         uint row, col, scol, idx, slice;
         bool last;
-        ushort cr2_slice[3] = {1, 2640, 2640};
+        ushort cr2_slice[3] = {1, 2640, 2640}; // TODO: Extract from tiff tags
 
         for (scol=0; scol < ji.stride; scol++) {
             if (cr2_slice[0]) {
