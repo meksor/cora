@@ -2,20 +2,20 @@
 #include "io.h"
 
 namespace io {
-
     template<typename T>
     T AbstractIo::readType() {
-        T o = 0;
-        std::vector<uint8_t> ib(sizeof(T), 0);
-        this->read(ib, sizeof(T));
+        static std::vector<uint8_t> readbuf(MAX_READ_BYTES, 0);
 
-        for (auto i = 0; i < sizeof(T); ++i)
-        {
+        T o = 0;
+        this->read(readbuf, sizeof(T));
+        if (sizeof(T) == 1) return readbuf[0];
+
+        for (auto i = 0; i < sizeof(T); ++i) {
             o = o << 8;
             if (byteorder != io::Byteorder::LittleEndian)
-                o |= ib[i] & 0xff;
+                o |= readbuf[i] & 0xff;
             else
-                o |= ib[((sizeof(T) - 1) - i)] & 0xff;
+                o |= readbuf[((sizeof(T) - 1) - i)] & 0xff;
         }
         return o;
     };

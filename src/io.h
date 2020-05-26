@@ -9,6 +9,8 @@
 #include <math.h>
 #include "jpegdefs.h"
 
+#define MAX_READ_BYTES 8
+
 namespace io {
     enum Byteorder {
         Unknown = -1,

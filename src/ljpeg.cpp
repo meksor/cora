@@ -40,8 +40,6 @@ namespace ljpeg {
                     for (j=0; j < (1 << (max-len)); j++) {
                         if (h < (1 << max))
                             lut[h++] = len << 8 | symbol;
-                        else
-                             /**/;
                     }
                 }
             }
@@ -139,9 +137,8 @@ namespace ljpeg {
 
         for (i = 0; i<ji.width; i++) {
             for (j = 0; j<ji.ncomp; j++) {
-                htable ht = ji.dcts[ji.comps[j].dct];
                 idx = (i * ji.ncomp) + j;
-                len = ljpeg_read_symbol(ht);
+                len = ljpeg_read_symbol(ji.dcts[ji.comps[j].dct]);
                 coeff = ljpeg_read_bits(len, 0);
 
                 if ((coeff & (1 << (len-1))) == 0)
@@ -202,8 +199,6 @@ namespace ljpeg {
         return ibuf;
     }
 
-    
-
     Image::Image(io::AbstractIo::shared_ptr io) : io(io) {
         io->setByteorder(io::Byteorder::BigEndian);
     };
@@ -211,26 +206,14 @@ namespace ljpeg {
     netpbm::Image<ushort>::shared_ptr Image::decompress() {
         uint rgblen, ilen, i, row, col, j = 0;
         std::vector<ushort> ibuf;
-        std::unique_ptr<jinfo> ji = std::make_unique<jinfo>();
+        jinfo ji;
 
         io->seek(0);
         ljpeg_set_source(io);
-        ibuf = ljpeg_decompress(*ji);
-
-        ilen = ji->width*ji->ncomp*ji->height;
-        std::vector<ushort> bbuf(ilen, 0);
-        
-        for (i = 0; i<ilen; i++) {
-            row = i / ji->stride;
-            col = i % ji->stride;
-            bbuf[i] = 0;
-            if ((row+1 < ji->height) && (col+1 < ji->stride)) {
-                bbuf[i] += (((long)ibuf[i] + ibuf[i+1] + ibuf[i+ji->stride])/3);
-            }
-        }
+        ibuf = ljpeg_decompress(ji);        
 
         auto ppm = std::make_shared<netpbm::Image<ushort>>(
-            netpbm::Type::Greymap, ibuf, ji->width*ji->ncomp, ji->height, 14);
+            netpbm::Type::Greymap, ibuf, ji.width*ji.ncomp, ji.height, 14);
         return ppm;
     }
 }
