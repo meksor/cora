@@ -17,24 +17,25 @@ namespace crx {
     }
 
     bool Image::checkCRMarker() {
-        uint_fast16_t marker = io->read16();        
+        ushort marker = io->read16();        
         return marker == CRX_MARKER;
     };
 
-    uint_fast16_t Image::parseVersion() {
-        uint_fast16_t version = io->read16();        
+    ushort Image::parseVersion() {
+        ushort version = io->read16();        
         return version;
     }
     
-    io::AbstractIo::shared_ptr Image::extractJPG(tiff::IFD ifd, uint_fast16_t offsEntry, uint_fast16_t lenEntry) {
-        tiff::IFDEntry stripOffs = ifd.entries[offsEntry];
-        tiff::IFDEntry stripLen = ifd.entries[lenEntry];
+    io::AbstractIo::shared_ptr Image::extractJPG(tiff::IFD ifd, ushort oentry, ushort lentry) {
+        tiff::IFDEntry offs = ifd.entries[oentry];
+        tiff::IFDEntry len = ifd.entries[lentry];
+        auto jio = std::make_shared<io::MemIo>(len.value);
+        std::vector<uint8_t> jdata = jio->getData();
 
-        char * buffer = new char[stripLen.value];
-        io->seek(stripOffs.value);
-        io->read(buffer, stripLen.value);
+        io->seek(offs.value);
+        io->read(jdata, len.value);
         
-        auto io = std::make_shared<io::MemIo>(buffer, stripLen.value);
-        return io;
+        jio->setData(jdata);
+        return jio;
     }
 }

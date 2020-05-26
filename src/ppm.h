@@ -20,33 +20,36 @@ namespace netpbm {
             typedef std::shared_ptr<Image<T>> shared_ptr;
             io::AbstractIo::shared_ptr io;
 
-            Image(Type type, T * bitmap, size_t width, size_t height, size_t bitdepth) {
-                size_t imageLen, headerLen, len, bytes, i, j;
+            Image(Type type, std::vector<T> bitmap, size_t width, size_t height, uint8_t bitdepth) {
+                size_t imglen, hlen, len, bytes, i, j;
                 std::ostringstream header;
-                header << "P" << (char)type << " " << width << " " << height << " " << ((1 << bitdepth) - 1) << "\n";
-                headerLen = header.str().size();
+
+                header << "P" << static_cast<char>(type) << " " << width << " " \
+                    << height << " " << ((1 << bitdepth) - 1) << "\n";
+                hlen = header.str().size();
+                
                 bytes = ceil(bitdepth / 8.);
 
                 if (type == Type::Bitmap)
-                    imageLen = (width * height);
+                    imglen = (width * height);
                 if (type == Type::Greymap)
-                    imageLen = (width * height);
+                    imglen = (width * height);
                 if (type == Type::Pixelmap)
-                    imageLen = (width * height * 3);
+                    imglen = (width * height * 3);
 
-                len = (imageLen * bytes) + headerLen;
-                char * buf = new char[len];
+                len = (imglen * bytes) + hlen;
 
-                for (i = 0; i < imageLen; i++) {
+                auto memio = std::make_shared<io::MemIo>(len);
+                this->io = memio;
+                std::vector<uint8_t> &buf = memio->getData();
+
+                for (i = 0; i < imglen; i++) {
                     for (j = 0; j < bytes; j++) { 
-                        buf[headerLen + ((i * bytes) + j )] = (bitmap[i] >> ((bytes-1) - j)*8);
+                        buf[hlen + ((i * bytes) + j )] = (bitmap[i] >> ((bytes-1) - j)*8);
                     }
                 }
 
-                memcpy(buf, header.str().c_str(), headerLen);
-
-                this->io = std::shared_ptr<io::MemIo>(new io::MemIo(buf, len));
+                memcpy(buf.data(), header.str().c_str(), hlen);
             }
     };
-
 }

@@ -16,15 +16,15 @@ namespace crx {
     class Image : public tiff::Image {
         public:
             io::AbstractIo::shared_ptr io;
-            int version;
+            ushort version;
 
             Image(io::AbstractIo::shared_ptr io);
             ~Image() = default;
 
-            io::AbstractIo::shared_ptr extractJPG(tiff::IFD ifd, uint_fast16_t offsEntry, uint_fast16_t lenEntry);
+            io::AbstractIo::shared_ptr extractJPG(tiff::IFD ifd, ushort oentry, ushort lentry);
 
         private:
             bool checkCRMarker();
-            uint_fast16_t parseVersion();
+            ushort parseVersion();
     };
 };

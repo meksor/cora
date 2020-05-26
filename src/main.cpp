@@ -15,25 +15,24 @@
 int main(int argc, char * const argv[]) {
     std::string fileName(argv[1]);
     auto file = std::make_shared<io::FileIo>(fileName);
-    std::unique_ptr<crx::Image> img(new crx::Image(file));
-
-    io::AbstractIo::shared_ptr pio = img->extractJPG(
+    auto img = std::make_unique<crx::Image>(file);
+    
+    auto pio = img->extractJPG(
         img->ifds[0],
         STRIP_OFFSET,
         STRIP_BYTECOUNT
     );
-    jpeg::Image::shared_ptr pr = std::make_shared<jpeg::Image>(pio);
+    auto pr = std::make_shared<jpeg::Image>(pio);
     auto ppr = pr->decompress();
     std::string prn = "prv.ppm";
     ppr->io->save(prn);
 
-    io::AbstractIo::shared_ptr rio = img->extractJPG(
+    auto rio = img->extractJPG(
         img->ifds[3],
         STRIP_OFFSET,
         STRIP_BYTECOUNT
     );
-    ljpeg::Image::shared_ptr raw = std::make_shared<ljpeg::Image>(rio);
-
+    auto raw = std::make_shared<ljpeg::Image>(rio);
     auto rp = raw->decompress();
     std::string rpn = "raw.ppm";
     rp->io->save(rpn);

@@ -16,9 +16,8 @@ namespace ljpeg {
         uint end, len, i, j, h, t;
         ushort max;
         unsigned char htinfo, htid, httc, symbol;
-        unsigned char * counts = new unsigned char[16];
-        ushort * lut;
-
+        std::vector<uint8_t> counts(16, 0);
+        
         if (ljsrc->read16() != JPEG_DHT)
             throw std::runtime_error("DHT marker expected.");
 
@@ -34,7 +33,7 @@ namespace ljpeg {
             for (max=15; max && !counts[max]; max--);
             max += 1;
             
-            lut = new ushort[(1 << max)];
+            std::vector<ushort> lut(1 << max, 0);
             for (h=0, len=1; len <= max; len++) {
                 for (i=0; i < counts[len-1]; i++) {
                     symbol = ljsrc->read8();
@@ -46,13 +45,13 @@ namespace ljpeg {
                     }
                 }
             }
-            ji.dcts[htid] = htable{
+            ji.dcts.push_back(htable{
                 .tc = httc,
                 .id = htid,
                 .max = max,
                 .counts = counts,
                 .lut = lut,
-            };
+            });
         } while(ljsrc->tell() < end);
     }
 
@@ -74,12 +73,12 @@ namespace ljpeg {
             id = ljsrc->read8();
             sf = ljsrc->read8();
 
-            ji.comps[i] = component {
+            ji.comps.push_back(component {
                 .id = id,
                 .hsf = (sf >> 4) & 0x0f,
                 .vsf = (sf & 0x0f),
                 .qt = ljsrc->read8(),
-            };
+            });
         }
     }    
 
@@ -130,11 +129,11 @@ namespace ljpeg {
     }
 
     ushort ljpeg_read_symbol(htable &ht) {
-        unsigned bits = ljpeg_read_bits(ht.max, ht.lut);
+        unsigned bits = ljpeg_read_bits(ht.max, ht.lut.data());
         return ht.lut[bits] & 0xFF;
     }
 
-    void ljpeg_decode_row(uint row, ushort * rowbuf, struct jinfo &ji) {
+    void ljpeg_decode_row(uint row, std::vector<ushort> &rowbuf, struct jinfo &ji) {
         uint i, j, idx;
         int len, coeff, predictor;
 
@@ -159,7 +158,7 @@ namespace ljpeg {
         }
     }
 
-    void ljpeg_unscramble_row(uint srow, ushort * rowbuf, ushort * ibuf, struct jinfo &ji) {
+    void ljpeg_unscramble_row(uint srow, std::vector<ushort> rowbuf, std::vector<ushort> &ibuf, struct jinfo &ji) {
         uint row, col, scol, idx, slice;
         bool last;
         ushort cr2_slice[3] = {1, 2640, 2640}; // TODO: Extract from tiff tags
@@ -181,9 +180,8 @@ namespace ljpeg {
         }
     }
 
-    ushort * ljpeg_decompress(struct jinfo &ji) {
+    std::vector<ushort> ljpeg_decompress(struct jinfo &ji) {
         uint row, col, slice, i;
-        ushort * rowbuf, * ibuf;
         if(ljsrc->read16() != JPEG_SOI)
             throw std::runtime_error("Not a JPEG.");
 
@@ -191,10 +189,11 @@ namespace ljpeg {
         ljpeg_read_sof(ji);
         ljpeg_read_sos(ji);
 
-        rowbuf = new ushort[ji.stride];
-        ibuf = new ushort[ji.stride * ji.height];
+        std::vector<ushort> rowbuf(ji.stride, 0);
+        std::vector<ushort> ibuf(ji.stride * ji.height, 0);
 
-        for(i=0; i<4; i++) ji.pred[i] = 1 << (ji.prec - 1);
+        // TODO: What is the max number of components?
+        for(i=0; i<4; i++) ji.pred.push_back(1 << (ji.prec - 1)); 
        
         for (row = 0; row<ji.height; row++) {
             ljpeg_decode_row(row, rowbuf, ji);
@@ -211,15 +210,15 @@ namespace ljpeg {
 
     netpbm::Image<ushort>::shared_ptr Image::decompress() {
         uint rgblen, ilen, i, row, col, j = 0;
-        ushort * ibuf;
-        jinfo * ji = new jinfo;
+        std::vector<ushort> ibuf;
+        std::unique_ptr<jinfo> ji = std::make_unique<jinfo>();
 
         io->seek(0);
         ljpeg_set_source(io);
         ibuf = ljpeg_decompress(*ji);
 
         ilen = ji->width*ji->ncomp*ji->height;
-        ushort * bbuf = new ushort[ilen];
+        std::vector<ushort> bbuf(ilen, 0);
         
         for (i = 0; i<ilen; i++) {
             row = i / ji->stride;
@@ -228,23 +227,6 @@ namespace ljpeg {
             if ((row+1 < ji->height) && (col+1 < ji->stride)) {
                 bbuf[i] += (((long)ibuf[i] + ibuf[i+1] + ibuf[i+ji->stride])/3);
             }
-
-            /*
-            
-            rgbbuf[j] = ibuf[i] >> (ji->prec - 8);
-            rgbbuf[j+1] = ibuf[i] >> (ji->prec - 8);
-            rgbbuf[j+2] = ibuf[i] >> (ji->prec - 8);
-
-            if (i&1) {
-                rgbbuf[j] = ibuf[i] >> 8;
-                if (i<ilen-1) rgbbuf[j+1] = ibuf[i+1] >> 8;
-                rgbbuf[j+2] = 0;
-            } else {
-                rgbbuf[j+1] = ibuf[i] >> 8;
-                if (i<ilen-1) rgbbuf[j] = ibuf[i+1] >> 8;
-                rgbbuf[i+2] = 0; 
-            }*/
-        
         }
 
         auto ppm = std::make_shared<netpbm::Image<ushort>>(

@@ -19,7 +19,6 @@ namespace jpeg {
             Image(io::AbstractIo::shared_ptr io);
             ~Image() = default;
 
-            void save(const std::string& f) const;
             netpbm::Image<uint8_t>::shared_ptr decompress();
 
         private:

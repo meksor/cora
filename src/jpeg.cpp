@@ -29,13 +29,13 @@ namespace jpeg {
 
         ::jpeg_create_decompress(decompressInfo.get());
 
-        uint_fast32_t len = io->length();
-        char * data = new char[len];
+        size_t len = io->size();
+        std::vector<uint8_t> data(len, 0);
         io->read(data, len);
 
         ::jpeg_mem_src(
             decompressInfo.get(), 
-            reinterpret_cast<const unsigned char *>(data), 
+            reinterpret_cast<unsigned char *>(data.data()), 
             len
         );
 
@@ -52,15 +52,14 @@ namespace jpeg {
         size_t row_stride = decompressInfo->output_width * decompressInfo->output_components;
         size_t length = (decompressInfo->output_height * row_stride);
 
-        uint8_t * buf = new uint8_t[length];
-        uint8_t * p = buf;
+        std::vector<uint8_t> buf(length, 0);
+        uint8_t * p = buf.data();
 
         while ( decompressInfo->output_scanline < decompressInfo->output_height ) {
             ::jpeg_read_scanlines(decompressInfo.get(), &p, 1);
             p += row_stride;
         }
         ::jpeg_finish_decompress(decompressInfo.get());
-        delete[] data;
 
         auto ppm = std::make_shared<netpbm::Image<uint8_t>>(
             netpbm::Type::Pixelmap, buf, decompressInfo->output_width, decompressInfo->output_height, 8

@@ -24,24 +24,24 @@ namespace ljpeg {
         ushort tc;  // table class (ac/dc)
         ushort id;  // table id
         ushort max; // max code length
-        unsigned char * counts; // number of codes per length
-        ushort * lut; // lookup table
+        std::vector<uint8_t> counts; // number of codes per length
+        std::vector<ushort> lut; // lookup table
     };
 
     struct jinfo {
         size_t width; // image width
         size_t height; // image height
         size_t stride; // image stride
-        size_t prec; // sample precision 
-        size_t ncomp; // number of color components
+        uint8_t prec; // sample precision 
+        uint8_t ncomp; // number of color components
 
         size_t spss; // spectral / predictor selection start 
         size_t spse; // spectral / predictor selection end 
         size_t sabp; // successive approximation bit positions
 
-        int pred[4]; // predictor value (differential encoding)
-        htable dcts[4]; // huffman tables
-        component comps[4]; // color components
+        std::vector<int> pred; // predictor value (differential encoding)
+        std::vector<htable> dcts; // huffman tables
+        std::vector<component> comps; // color components
     };
     
     class Image {
@@ -52,7 +52,6 @@ namespace ljpeg {
             Image(io::AbstractIo::shared_ptr io);
             ~Image() = default;
 
-            void save(const std::string& f) const;
             netpbm::Image<ushort>::shared_ptr decompress();
     };
 }

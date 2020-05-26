@@ -13,26 +13,23 @@
 
 namespace tiff {
     struct IFDEntry {
-        uint_fast16_t id;
-        uint_fast16_t type;
-        uint_fast32_t count;
-        uint_fast32_t value;
+        ushort id;
+        ushort type;
+        ulong count;
+        ulong value;
     };
 
     class IFD {
         public:
-            uint_fast16_t numEntries;
-            std::map<uint_fast16_t, struct IFDEntry> entries;
-            uint_fast16_t nextIFDOffset;
+            ushort nEntries;
+            std::map<ushort, struct IFDEntry> entries;
+            ulong nextIfdOffs;
 
-            IFD(uint_fast16_t ne, std::map<uint_fast16_t, struct IFDEntry> es, uint_fast16_t ni);
-
+            IFD(ushort ne, std::map<ushort, struct IFDEntry> es, ulong ni);
     };
 
     class Image {
         public:
-
-
             io::AbstractIo::shared_ptr io;
             io::Byteorder byteorder;
             std::vector<IFD> ifds;
@@ -41,12 +38,11 @@ namespace tiff {
             ~Image() = default;
 
         private:
-
             io::Byteorder parseByteorder();
             bool checkMagicNumber();
             std::vector<struct IFD> parseIFDs();
-            struct IFD parseIFD(int_fast32_t offset);
-            std::map<uint_fast16_t, struct IFDEntry> parseIFDEntries(uint_fast16_t numEntries);
+            struct IFD parseIFD(ulong offset);
+            std::map<ushort, struct IFDEntry> parseIFDEntries(ushort numEntries);
             struct IFDEntry parseIFDEntry();
     };
 }

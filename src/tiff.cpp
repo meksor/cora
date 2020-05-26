@@ -3,19 +3,22 @@
 #include <istream>
 
 namespace tiff {
-    IFD::IFD(uint_fast16_t ne, std::map<uint_fast16_t, struct IFDEntry> es, uint_fast16_t ni): 
-        numEntries(ne),
+    IFD::IFD(ushort ne, std::map<ushort, struct IFDEntry> es, ulong ni): 
+        nEntries(ne),
         entries(es),
-        nextIFDOffset(ni) {
+        nextIfdOffs(ni) {
     }
 
     Image::Image(io::AbstractIo::shared_ptr io):
         io(io) {
+        io::Byteorder bo;
 
         io->seek(0);
-        io::Byteorder bo = this->parseByteorder();
+        bo = this->parseByteorder();
+
         if(bo == io::Byteorder::Unknown)
             throw std::invalid_argument("Unknown byteorder.");
+
         io->setByteorder(bo);
         
         if(!this->checkMagicNumber())
@@ -25,7 +28,7 @@ namespace tiff {
     };
 
     io::Byteorder Image::parseByteorder() {
-        uint_fast16_t byteorder = io->read16();;
+        ushort byteorder = io->read16();
 
         if (byteorder == BYTEORDER_INTEL) {
             return io::Byteorder::LittleEndian;
@@ -39,36 +42,39 @@ namespace tiff {
     };
     
     bool Image::checkMagicNumber() {
-        uint_fast16_t magicn = io->read16();        
+        ushort magicn = io->read16();        
         return magicn == TIFF_MAGICNUM;
     };
     
     std::vector<IFD> Image::parseIFDs() {
         io->seek(4);
-        uint_fast32_t offset = io->read32();
+        ulong offset = io->read32();
         std::vector<IFD> ifds;
         do {
-            IFD ifd = parseIFD(offset);
+            IFD ifd = this->parseIFD(offset);
             ifds.push_back(ifd);
-            offset = ifd.nextIFDOffset;
+            offset = ifd.nextIfdOffs;
         }
         while (offset != 0);
         return ifds;
     };
 
-    IFD Image::parseIFD(int_fast32_t offset) {
+    IFD Image::parseIFD(ulong offset) {
+        ushort nentries;
+        ulong nifdoffs;
+        std::map<ushort, struct IFDEntry> entries;
+
         io->seek(offset);
 
-        uint_fast16_t numEntries = io->read16();
+        nentries = io->read16();
+        entries = this->parseIFDEntries(nentries);
+        nifdoffs = io->read32();
 
-        std::map<uint_fast16_t, struct IFDEntry> entries = this->parseIFDEntries(numEntries);
-        uint_fast32_t nextIFDOffset = io->read32();
-
-        return IFD(numEntries, entries, nextIFDOffset);
+        return IFD(nentries, entries, nifdoffs);
     };
 
-    std::map<uint_fast16_t, struct IFDEntry> Image::parseIFDEntries(uint_fast16_t numEntries) {
-        std::map<uint_fast16_t, struct IFDEntry> entries({});
+    std::map<ushort, struct IFDEntry> Image::parseIFDEntries(ushort numEntries) {
+        std::map<ushort, struct IFDEntry> entries;
 
         for (int i=0; i<numEntries; i++) {
             IFDEntry entry = this->parseIFDEntry();
